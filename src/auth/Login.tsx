@@ -1,16 +1,13 @@
 import React, { FC, useCallback, useEffect, useState } from "react";
 import { useCookies } from "react-cookie";
-import { v4 as uuid } from "uuid";
-
-const jwtCookieKey = "jwt";
+import { JsonDecoder } from "ts.data.json";
 
 const Login: FC = () => {
   const [redirectUrl, setRedirectUrl] = useState("");
-  const [, setCookie] = useCookies([]);
 
   useEffect(() => {
     (async () => {
-      const response = await fetch(`/oauth/spotify-redirect`);
+      const response = await fetch(`/tokens/spotify-redirect`);
       const json = await response.json();
       setRedirectUrl(json.url);
     })();
@@ -26,20 +23,26 @@ const Login: FC = () => {
 const SpotifyCallback: FC = () => {
   const [, setCookie] = useCookies([]);
 
-  const fetchJwt = useCallback(async (): Promise<string> => {
-    const response = await fetch(`/oauth/spotify-cb${window.location.search}`); // Fwd OAuth response to API
-    const json = await response.json();
-
-    return json.jwt;
+  const fetchAccessToken = useCallback(async (): Promise<unknown> => {
+    const response = await fetch(`/tokens/spotify-cb${window.location.search}`); // Fwd OAuth response to API
+    return await response.json();
   }, []);
 
   useEffect(() => {
     (async () => {
-      const jwt = await fetchJwt();
-      setCookie(jwtCookieKey, jwt);
-      alert(jwt);
+      try {
+        const at = await fetchAccessToken();
+        const decoded = await JsonDecoder.object(
+          { token_type: JsonDecoder.string, access_token: JsonDecoder.string },
+          "AT"
+        ).decodePromise(at);
+        global.localStorage.setItem("token_type", decoded.token_type);
+        global.localStorage.setItem("access_token", decoded.access_token);
+      } catch {
+        console.log("access token fail");
+      }
     })();
-  }, [fetchJwt, setCookie]);
+  }, [fetchAccessToken, setCookie]);
 
   return null;
 };
