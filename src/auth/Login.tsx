@@ -1,6 +1,7 @@
-import React, { FC, useCallback, useEffect, useState } from "react";
-import { useCookies } from "react-cookie";
+import { memo, FC, useCallback, useEffect, useState } from "react";
+import { useRecoilValue, useSetRecoilState } from "recoil";
 import { JsonDecoder } from "ts.data.json";
+import { accessTokenState } from "../recoil/atoms";
 
 const Login: FC = () => {
   const [redirectUrl, setRedirectUrl] = useState("");
@@ -21,7 +22,7 @@ const Login: FC = () => {
 };
 
 const SpotifyCallback: FC = () => {
-  const [, setCookie] = useCookies([]);
+  const setAccessToken = useSetRecoilState(accessTokenState);
 
   const fetchAccessToken = useCallback(async (): Promise<unknown> => {
     const response = await fetch(`/tokens/spotify-cb${window.location.search}`); // Fwd OAuth response to API
@@ -36,16 +37,22 @@ const SpotifyCallback: FC = () => {
           { token_type: JsonDecoder.string, access_token: JsonDecoder.string },
           "AT"
         ).decodePromise(at);
-        global.localStorage.setItem("token_type", decoded.token_type);
-        global.localStorage.setItem("access_token", decoded.access_token);
+
+        setAccessToken({
+          tokenType: decoded.token_type,
+          accessToken: decoded.access_token,
+        });
       } catch {
         console.log("access token fail");
+        setAccessToken(undefined);
       }
     })();
-  }, [fetchAccessToken, setCookie]);
+  }, [fetchAccessToken, setAccessToken]);
 
-  return null;
+  return (
+    <pre>{JSON.stringify(useRecoilValue(accessTokenState), undefined, 2)}</pre>
+  );
 };
 
-export default React.memo(Login);
+export default memo(Login);
 export { SpotifyCallback };
